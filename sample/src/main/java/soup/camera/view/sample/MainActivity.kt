@@ -4,10 +4,13 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.view.CameraView
 import androidx.core.content.ContextCompat
+import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
 
 class MainActivity : AppCompatActivity() {
 
@@ -26,7 +29,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startCamera() {
+        val previewView: ImageView = findViewById(R.id.previewView)
         val cameraView: CameraView = findViewById(R.id.cameraView)
+        cameraView.setAnalyzer { image, rotationDegrees ->
+            val mediaImage = image.image
+            if (mediaImage != null) {
+                val rotation = when (rotationDegrees) {
+                    0 -> FirebaseVisionImageMetadata.ROTATION_0
+                    90 -> FirebaseVisionImageMetadata.ROTATION_90
+                    180 -> FirebaseVisionImageMetadata.ROTATION_180
+                    270 -> FirebaseVisionImageMetadata.ROTATION_270
+                    else -> FirebaseVisionImageMetadata.ROTATION_0
+                }
+                val bitmap = FirebaseVisionImage.fromMediaImage(mediaImage, rotation).bitmap
+                runOnUiThread {
+                    previewView.setImageBitmap(bitmap)
+                }
+            }
+        }
         cameraView.bindToLifecycle(this)
     }
 
