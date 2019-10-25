@@ -61,7 +61,10 @@ import androidx.lifecycle.LifecycleOwner;
 
 import java.io.File;
 
+//TODO: [SOUP] START
+import androidx.camera.core.ImageAnalysis.Analyzer;
 import soup.camera.view.R;
+//TODO: [SOUP] END
 
 /**
  * A {@link View} that displays a preview of the camera with methods {@link
@@ -1111,4 +1114,14 @@ public final class CameraView extends ViewGroup {
         public void onScaleEnd(ScaleGestureDetector detector) {
         }
     }
+
+    //TODO: [SOUP] START
+    public void setAnalyzer(Analyzer analyzer) {
+        mCameraModule.setAnalyzer(analyzer);
+    }
+
+    public void removeAnalyzer() {
+        mCameraModule.removeAnalyzer();
+    }
+    //TODO: [SOUP] END
 }
