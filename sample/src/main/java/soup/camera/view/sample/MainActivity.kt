@@ -31,23 +31,24 @@ class MainActivity : AppCompatActivity() {
     private fun startCamera() {
         val previewView: ImageView = findViewById(R.id.previewView)
         val cameraView: CameraView = findViewById(R.id.cameraView)
-        cameraView.setAnalyzer { image, rotationDegrees ->
-            val mediaImage = image.image
-            if (mediaImage != null) {
-                val rotation = when (rotationDegrees) {
-                    0 -> FirebaseVisionImageMetadata.ROTATION_0
-                    90 -> FirebaseVisionImageMetadata.ROTATION_90
-                    180 -> FirebaseVisionImageMetadata.ROTATION_180
-                    270 -> FirebaseVisionImageMetadata.ROTATION_270
-                    else -> FirebaseVisionImageMetadata.ROTATION_0
-                }
-                val bitmap = FirebaseVisionImage.fromMediaImage(mediaImage, rotation).bitmap
-                runOnUiThread {
-                    previewView.setImageBitmap(bitmap)
+        cameraView.bindToLifecycle(this)
+        cameraView.setAnalyzer { proxy ->
+            proxy.use {
+                it.image?.use { mediaImage ->
+                    val rotation = when (it.imageInfo.rotationDegrees) {
+                        0 -> FirebaseVisionImageMetadata.ROTATION_0
+                        90 -> FirebaseVisionImageMetadata.ROTATION_90
+                        180 -> FirebaseVisionImageMetadata.ROTATION_180
+                        270 -> FirebaseVisionImageMetadata.ROTATION_270
+                        else -> FirebaseVisionImageMetadata.ROTATION_0
+                    }
+                    val bitmap = FirebaseVisionImage.fromMediaImage(mediaImage, rotation).bitmap
+                    runOnUiThread {
+                        previewView.setImageBitmap(bitmap)
+                    }
                 }
             }
         }
-        cameraView.bindToLifecycle(this)
     }
 
     override fun onRequestPermissionsResult(
