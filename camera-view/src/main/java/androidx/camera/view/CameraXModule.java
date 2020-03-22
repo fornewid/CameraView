@@ -16,6 +16,8 @@
 
 package androidx.camera.view;
 
+import static androidx.camera.core.ImageCapture.FLASH_MODE_OFF;
+
 import android.Manifest.permission;
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -30,8 +32,6 @@ import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.CameraX;
-import androidx.camera.core.ImageAnalysis;
-import androidx.camera.core.ImageAnalysis.Analyzer;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCapture.OnImageCapturedCallback;
 import androidx.camera.core.ImageCapture.OnImageSavedCallback;
@@ -66,9 +66,8 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static androidx.camera.core.ImageCapture.FLASH_MODE_OFF;
-
 //TODO: [SOUP] START
+import androidx.camera.core.ImageAnalysis;
 //TODO: [SOUP] END
 
 /** CameraX use case operation built on @{link androidx.camera.core}. */
@@ -254,7 +253,7 @@ final class CameraXModule {
         //TODO: [SOUP] END
 
         mPreview = mPreviewBuilder.build();
-        mPreview.setSurfaceProvider(mCameraView.getPreviewView().getPreviewSurfaceProvider());
+        mPreview.setSurfaceProvider(mCameraView.getPreviewView().createSurfaceProvider(null));
 
         CameraSelector cameraSelector =
                 new CameraSelector.Builder().requireLensFacing(mCameraLensFacing).build();
@@ -543,7 +542,7 @@ final class CameraXModule {
     // Update view related information used in use cases
     private void updateViewInfo() {
         if (mImageCapture != null) {
-            mImageCapture.setTargetAspectRatioCustom(new Rational(getWidth(), getHeight()));
+            mImageCapture.setCropAspectRatio(new Rational(getWidth(), getHeight()));
             mImageCapture.setTargetRotation(getDisplaySurfaceRotation());
         }
 
@@ -683,7 +682,7 @@ final class CameraXModule {
     }
 
     //TODO: [SOUP] START
-    public void setAnalyzer(Analyzer analyzer) {
+    public void setAnalyzer(ImageAnalysis.Analyzer analyzer) {
         mImageAnalysisAnalyzer = analyzer;
 
         if (mImageAnalysis == null) {
