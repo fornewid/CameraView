@@ -20,13 +20,13 @@ allprojects {
 Then, add the library to your module `build.gradle`
 ```gradle
 dependencies {
-    implementation 'com.github.fornewid:CameraView:1.0.0-beta01'
+    implementation 'com.github.fornewid:CameraView:1.0.0-alpha08'
 }
 ```
 
 ## Features
 - All features in [AndroidX Camera-View](https://developer.android.com/jetpack/androidx/releases/camera#camera-extensions_and_camera-view_version_100_2).
-- And image analysis. 
+- And [image analysis](https://developer.android.com/training/camerax/analyze). 
 
 ## Usage
 There is a [sample](https://github.com/fornewid/CameraView/tree/master/sample) provided which shows how to use the library in a simple way:
