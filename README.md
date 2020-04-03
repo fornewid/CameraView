@@ -20,7 +20,7 @@ allprojects {
 Then, add the library to your module `build.gradle`
 ```gradle
 dependencies {
-    implementation 'com.github.fornewid:CameraView:1.0.0-alpha08'
+    implementation 'com.github.fornewid:CameraView:1.0.0-alpha09'
 }
 ```
 
