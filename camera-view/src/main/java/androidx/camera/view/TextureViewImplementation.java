@@ -27,7 +27,6 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.camera.core.Preview;
 import androidx.camera.core.SurfaceRequest;
 import androidx.camera.core.impl.utils.executor.CameraXExecutors;
 import androidx.camera.core.impl.utils.futures.FutureCallback;
@@ -37,6 +36,8 @@ import androidx.core.content.ContextCompat;
 import androidx.core.util.Preconditions;
 
 import com.google.common.util.concurrent.ListenableFuture;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The {@link TextureView} implementation for {@link PreviewView}
@@ -49,6 +50,14 @@ final class TextureViewImplementation extends PreviewViewImplementation {
     SurfaceTexture mSurfaceTexture;
     ListenableFuture<Result> mSurfaceReleaseFuture;
     SurfaceRequest mSurfaceRequest;
+    boolean mIsSurfaceTextureDetachedFromView = false;
+    SurfaceTexture mDetachedSurfaceTexture;
+
+    AtomicReference<CallbackToFutureAdapter.Completer<Void>> mNextFrameCompleter =
+            new AtomicReference<>();
+
+    @Nullable
+    OnSurfaceNotInUseListener mOnSurfaceNotInUseListener;
 
     @Nullable
     @Override
@@ -56,27 +65,47 @@ final class TextureViewImplementation extends PreviewViewImplementation {
         return mTextureView;
     }
 
-    @NonNull
     @Override
-    public Preview.SurfaceProvider getSurfaceProvider() {
-        return (surfaceRequest) -> {
-            mResolution = surfaceRequest.getResolution();
-            initializePreview();
-            if (mSurfaceRequest != null) {
-                mSurfaceRequest.willNotProvideSurface();
-            }
+    void onAttachedToWindow() {
+        reattachSurfaceTexture();
+    }
 
-            mSurfaceRequest = surfaceRequest;
-            surfaceRequest.addRequestCancellationListener(
-                    ContextCompat.getMainExecutor(mTextureView.getContext()), () -> {
-                        if (mSurfaceRequest != null && mSurfaceRequest == surfaceRequest) {
-                            mSurfaceRequest = null;
-                            mSurfaceReleaseFuture = null;
-                        }
-                    });
+    @Override
+    void onDetachedFromWindow() {
+        mIsSurfaceTextureDetachedFromView = true;
+    }
 
-            tryToProvidePreviewSurface();
-        };
+    @Override
+    void onSurfaceRequested(@NonNull SurfaceRequest surfaceRequest,
+            @Nullable OnSurfaceNotInUseListener onSurfaceNotInUseListener) {
+        mResolution = surfaceRequest.getResolution();
+        mOnSurfaceNotInUseListener = onSurfaceNotInUseListener;
+        initializePreview();
+        if (mSurfaceRequest != null) {
+            mSurfaceRequest.willNotProvideSurface();
+        }
+
+        mSurfaceRequest = surfaceRequest;
+
+        surfaceRequest.addRequestCancellationListener(
+                ContextCompat.getMainExecutor(mTextureView.getContext()),
+                () -> {
+                    if (mSurfaceRequest != null && mSurfaceRequest == surfaceRequest) {
+                        mSurfaceRequest = null;
+                        mSurfaceReleaseFuture = null;
+                    }
+
+                    notifySurfaceNotInUse();
+                });
+
+        tryToProvidePreviewSurface();
+    }
+
+    private void notifySurfaceNotInUse() {
+        if (mOnSurfaceNotInUseListener != null) {
+            mOnSurfaceNotInUseListener.onSurfaceNotInUse();
+            mOnSurfaceNotInUseListener = null;
+        }
     }
 
     @Override
@@ -91,6 +120,7 @@ final class TextureViewImplementation extends PreviewViewImplementation {
             @Override
             public void onSurfaceTextureAvailable(final SurfaceTexture surfaceTexture,
                     final int width, final int height) {
+                Log.d(TAG, "SurfaceTexture available. Size: " + width +  "x" + height);
                 mSurfaceTexture = surfaceTexture;
                 tryToProvidePreviewSurface();
             }
@@ -98,8 +128,7 @@ final class TextureViewImplementation extends PreviewViewImplementation {
             @Override
             public void onSurfaceTextureSizeChanged(final SurfaceTexture surfaceTexture,
                     final int width, final int height) {
-                Log.d(TAG, "onSurfaceTextureSizeChanged(width:" + width + ", height: " + height
-                        + " )");
+                Log.d(TAG, "SurfaceTexture size changed: " + width +  "x" + height);
             }
 
             /**
@@ -115,6 +144,7 @@ final class TextureViewImplementation extends PreviewViewImplementation {
              */
             @Override
             public boolean onSurfaceTextureDestroyed(final SurfaceTexture surfaceTexture) {
+                Log.d(TAG, "SurfaceTexture destroyed");
                 mSurfaceTexture = null;
                 if (mSurfaceRequest == null && mSurfaceReleaseFuture != null) {
                     Futures.addCallback(mSurfaceReleaseFuture,
@@ -126,6 +156,9 @@ final class TextureViewImplementation extends PreviewViewImplementation {
                                             "Unexpected result from SurfaceRequest. Surface was "
                                                     + "provided twice.");
                                     surfaceTexture.release();
+                                    if (mDetachedSurfaceTexture != null) {
+                                        mDetachedSurfaceTexture = null;
+                                    }
                                 }
 
                                 @Override
@@ -134,6 +167,8 @@ final class TextureViewImplementation extends PreviewViewImplementation {
                                             + "complete nicely.", t);
                                 }
                             }, ContextCompat.getMainExecutor(mTextureView.getContext()));
+
+                    mDetachedSurfaceTexture = surfaceTexture;
                     return false;
                 } else {
                     return true;
@@ -142,6 +177,12 @@ final class TextureViewImplementation extends PreviewViewImplementation {
 
             @Override
             public void onSurfaceTextureUpdated(final SurfaceTexture surfaceTexture) {
+                CallbackToFutureAdapter.Completer<Void> completer =
+                        mNextFrameCompleter.getAndSet(null);
+
+                if (completer != null) {
+                    completer.set(null);
+                }
             }
         });
 
@@ -163,6 +204,7 @@ final class TextureViewImplementation extends PreviewViewImplementation {
         final Surface surface = new Surface(mSurfaceTexture);
         final ListenableFuture<Result> surfaceReleaseFuture =
                 CallbackToFutureAdapter.getFuture(completer -> {
+                    Log.d(TAG, "Surface set on Preview.");
                     mSurfaceRequest.provideSurface(surface,
                             CameraXExecutors.directExecutor(), completer::set);
                     return "provideSurface[request=" + mSurfaceRequest + " surface=" + surface
@@ -170,6 +212,8 @@ final class TextureViewImplementation extends PreviewViewImplementation {
                 });
         mSurfaceReleaseFuture = surfaceReleaseFuture;
         mSurfaceReleaseFuture.addListener(() -> {
+            Log.d(TAG, "Safe to release surface.");
+            notifySurfaceNotInUse();
             surface.release();
             if (mSurfaceReleaseFuture == surfaceReleaseFuture) {
                 mSurfaceReleaseFuture = null;
@@ -178,5 +222,26 @@ final class TextureViewImplementation extends PreviewViewImplementation {
 
         mSurfaceRequest = null;
         onSurfaceProvided();
+    }
+
+    private void reattachSurfaceTexture() {
+        if (mIsSurfaceTextureDetachedFromView
+                && mDetachedSurfaceTexture != null
+                && mTextureView.getSurfaceTexture() != mDetachedSurfaceTexture) {
+            mTextureView.setSurfaceTexture(mDetachedSurfaceTexture);
+            mDetachedSurfaceTexture = null;
+            mIsSurfaceTextureDetachedFromView = false;
+        }
+    }
+
+    @Override
+    @NonNull
+    ListenableFuture<Void> waitForNextFrame() {
+        return CallbackToFutureAdapter.getFuture(
+                completer -> {
+                    mNextFrameCompleter.set(completer);
+                    return "textureViewImpl_waitForNextFrame";
+                }
+        );
     }
 }

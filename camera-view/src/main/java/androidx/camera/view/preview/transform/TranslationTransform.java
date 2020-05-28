@@ -23,8 +23,14 @@ import androidx.annotation.NonNull;
 import androidx.camera.view.preview.transform.transformation.TranslationTransformation;
 
 /**
- * Computes the x and y coordinates of the top left corner of the preview in order to position it
- * at the start (top left), center or end (bottom right) of its parent.
+ * Computes the horizontal and vertical translations by which the preview needs to be translated
+ * to position it at the start, center or end of its parent.
+ * <p>
+ * The start represents the top left corner in a left-to-right (LTR) layout, or the top right
+ * corner in a right-to-left (RTL) layout.
+ * <p>
+ * The end represents the bottom right corner in a left-to-right (LTR) layout, or the bottom left
+ * corner in a right-to-left (RTL) layout.
  */
 final class TranslationTransform {
 
@@ -32,11 +38,14 @@ final class TranslationTransform {
     }
 
     /**
-     * Computes the x and y coordinates of the top left corner of {@code view} so that it's
-     * aligned to the top left corner of its parent {@code container}.
+     * Computes the horizontal and vertical translations to set on {@code view} to align it to the
+     * start of its parent {@code container}.
+     * <p>
+     * The start represents the top left corner in a left-to-right (LTR) layout, or the top right
+     * corner in a right-to-left (RTL) layout.
      */
     static TranslationTransformation start(@NonNull final View view,
-            @NonNull final Pair<Float, Float> scaleXY) {
+            @NonNull final Pair<Float, Float> scaleXY, final int deviceRotation) {
         if (view.getWidth() == 0 || view.getHeight() == 0) {
             return new TranslationTransformation(0, 0);
         }
@@ -45,7 +54,8 @@ final class TranslationTransform {
         final int scaledWidth = (int) (view.getWidth() * scaleXY.first);
         final int scaledHeight = (int) (view.getHeight() * scaleXY.second);
 
-        final int viewRotationDegrees = (int) RotationTransform.getRotationDegrees(view);
+        final int viewRotationDegrees = (int) RotationTransform.getRotationDegrees(view,
+                deviceRotation);
         final boolean isPortrait = viewRotationDegrees == 0 || viewRotationDegrees == 180;
 
         // Coordinates of the view's center after the `start` translation
@@ -63,14 +73,14 @@ final class TranslationTransform {
         final int currentCenterX = view.getWidth() / 2;
         final int currentCenterY = view.getHeight() / 2;
 
-        final int transX = targetCenterX - currentCenterX;
+        final int transX = reverseIfRTLLayout(view, targetCenterX - currentCenterX);
         final int transY = targetCenterY - currentCenterY;
         return new TranslationTransformation(transX, transY);
     }
 
     /**
-     * Computes the x and y coordinates of the top left corner of {@code view} so that it's
-     * centered in its parent {@code container}.
+     * Computes the horizontal and vertical translations to set on {@code view} to center it in its
+     * parent {@code container}.
      */
     static TranslationTransformation center(@NonNull final View container,
             @NonNull final View view) {
@@ -86,17 +96,20 @@ final class TranslationTransform {
         final int currentCenterX = view.getWidth() / 2;
         final int currentCenterY = view.getHeight() / 2;
 
-        final int transX = targetCenterX - currentCenterX;
+        final int transX = reverseIfRTLLayout(view, targetCenterX - currentCenterX);
         final int transY = targetCenterY - currentCenterY;
         return new TranslationTransformation(transX, transY);
     }
 
     /**
-     * Computes the x and y coordinates of the top left corner of {@code view} so that it's
-     * aligned to the bottom right corner of its parent {@code container}.
+     * Computes the horizontal and vertical translations to set on {@code view} to align it to the
+     * end of its parent {@code container}.
+     * <p>
+     * The end represents the bottom right corner in a left-to-right (LTR) layout, or the bottom
+     * left corner in a right-to-left (RTL) layout.
      */
     static TranslationTransformation end(@NonNull final View container, @NonNull final View view,
-            @NonNull final Pair<Float, Float> scaleXY) {
+            @NonNull final Pair<Float, Float> scaleXY, final int deviceRotation) {
         if (view.getWidth() == 0 || view.getHeight() == 0) {
             return new TranslationTransformation(0, 0);
         }
@@ -109,7 +122,8 @@ final class TranslationTransform {
         final int scaledWidth = (int) (view.getWidth() * scaleXY.first);
         final int scaledHeight = (int) (view.getHeight() * scaleXY.second);
 
-        final int viewRotationDegrees = (int) RotationTransform.getRotationDegrees(view);
+        final int viewRotationDegrees = (int) RotationTransform.getRotationDegrees(view,
+                deviceRotation);
         final boolean isPortrait = viewRotationDegrees == 0 || viewRotationDegrees == 180;
 
         // Coordinates of the view's center after the `end` translation
@@ -127,8 +141,19 @@ final class TranslationTransform {
         final int currentCenterX = view.getWidth() / 2;
         final int currentCenterY = view.getHeight() / 2;
 
-        final int transX = targetCenterX - currentCenterX;
+        final int transX = reverseIfRTLLayout(view, targetCenterX - currentCenterX);
         final int transY = targetCenterY - currentCenterY;
         return new TranslationTransformation(transX, transY);
+    }
+
+    /**
+     * Reverses a horizontal translation if the {@code view} is in a right-to-left (RTL) layout.
+     *
+     * @return The passed in horizontal translation if the layout is left-to-right (LTR), or its
+     * reverse if the layout is right-to-left (RTL).
+     */
+    private static int reverseIfRTLLayout(@NonNull final View view, int transX) {
+        final boolean isRTLDirection = view.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+        return isRTLDirection ? -transX : transX;
     }
 }

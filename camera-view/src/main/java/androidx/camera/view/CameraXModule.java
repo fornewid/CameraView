@@ -227,10 +227,10 @@ final class CameraXModule {
 
         Rational targetAspectRatio;
         if (getCaptureMode() == CaptureMode.IMAGE) {
-            mImageCaptureBuilder.setTargetAspectRatio(AspectRatio.RATIO_4_3);
             targetAspectRatio = isDisplayPortrait ? ASPECT_RATIO_3_4 : ASPECT_RATIO_4_3;
         } else {
             mImageCaptureBuilder.setTargetAspectRatio(AspectRatio.RATIO_16_9);
+            mVideoCaptureConfigBuilder.setTargetAspectRatio(AspectRatio.RATIO_16_9);
             targetAspectRatio = isDisplayPortrait ? ASPECT_RATIO_9_16 : ASPECT_RATIO_16_9;
         }
 
@@ -253,7 +253,7 @@ final class CameraXModule {
         //TODO: [SOUP] END
 
         mPreview = mPreviewBuilder.build();
-        mPreview.setSurfaceProvider(mCameraView.getPreviewView().createSurfaceProvider(null));
+        mPreview.setSurfaceProvider(mCameraView.getPreviewView().createSurfaceProvider());
 
         CameraSelector cameraSelector =
                 new CameraSelector.Builder().requireLensFacing(mCameraLensFacing).build();
@@ -309,7 +309,8 @@ final class CameraXModule {
         mImageCapture.takePicture(executor, callback);
     }
 
-    public void takePicture(File saveLocation, Executor executor, OnImageSavedCallback callback) {
+    public void takePicture(@NonNull ImageCapture.OutputFileOptions outputFileOptions,
+                            @NonNull Executor executor, OnImageSavedCallback callback) {
         if (mImageCapture == null) {
             return;
         }
@@ -325,9 +326,6 @@ final class CameraXModule {
         ImageCapture.Metadata metadata = new ImageCapture.Metadata();
         metadata.setReversedHorizontal(
                 mCameraLensFacing != null && mCameraLensFacing == CameraSelector.LENS_FACING_FRONT);
-        ImageCapture.OutputFileOptions outputFileOptions =
-                new ImageCapture.OutputFileOptions.Builder(saveLocation).setMetadata(
-                        metadata).build();
         mImageCapture.takePicture(outputFileOptions, executor, callback);
     }
 
@@ -487,6 +485,10 @@ final class CameraXModule {
         if (mCurrentLifecycle != null) {
             bindToLifecycle(mCurrentLifecycle);
         }
+    }
+
+    boolean isBoundToLifecycle() {
+        return mCamera != null;
     }
 
     int getRelativeCameraOrientation(boolean compensateForMirroring) {
