@@ -1,4 +1,10 @@
-# CameraView
+# DEPRECATED
+
+This library is not maintained anymore.
+
+Use [CameraX Preview](https://developer.android.com/training/camerax/preview?hl=en) instead of this library.
+
+# ~~CameraView~~
 CameraX View + CameraX Analyzer
 
 <a href="https://opensource.org/licenses/Apache-2.0"><img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg"/></a>
